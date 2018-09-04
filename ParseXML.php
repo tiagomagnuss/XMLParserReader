@@ -9,7 +9,7 @@
 /**
  * Generates the XML file that maps the table.
  * 
- * For this to work you need a Database resource, which can be queried and instantiated on this class (l-57).
+ * For this to work you need a Database resource that can be queried and instantiated on this class (l-57).
  * Also, for the table's primary keys, ValueObjects must exist, with a function to get their primary values (l-100).
  */
 class ParseXML
@@ -78,7 +78,7 @@ class ParseXML
     *
     * @param array $rows
     *           Rows returned on the query. Formatted as an array of arrays as keys => values.
-    *           Where keys are the table's columns.
+    *           Where 'keys' are the table's columns.
     * @param string $table
     *           The table's name.
     */
@@ -111,7 +111,7 @@ class ParseXML
          $primary = implode( ",", $primary );
       }
 
-      // details the table.
+      // table details.
       $table = strtoupper( $table );
       $this->xmlTable->setAttribute( "name", $table );
       $this->xmlTable->setAttribute( "primary", strtoupper( $primary ) );
