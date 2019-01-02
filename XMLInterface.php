@@ -3,7 +3,7 @@
  * XMLParserReader
  * 
  * @author Tiago C. Magnus
- * @copyright : Tiago Magnus - 2018
+ * @copyright : Tiago Magnus - 2019
  */
 
 /**
@@ -48,7 +48,7 @@ class XMLInterface
 
          if ( $error )
          {
-            throw new Exception( $error );
+            throw new XMLParserException( $error );
          }
 
          $this->doc_ = new \DOMDocument( "1.0", "utf-8" );
@@ -59,18 +59,18 @@ class XMLInterface
       }
       else
       {
-         throw new Exception( "Failed attempt to open $filename." );
+         throw new XMLParserException( "Failed attempt to open $filename." );
       }
    }
 
    /**
-    * Busca um objeto no XML pela sua tabela e identificador.
+    * Search for an object on XML through its table and identifier.
     *
     * @param string $table
-    *           Tabela de objetos no XML.
+    *           XML table name.
     * @param int $id
-    *           Identificador único do objeto.
-    * @return array Array associativo com as propriedades do objeto como chaves e os seus respectivos valores.
+    *           Unique object identifier
+    * @return array Associate array with the object's properties as keys and its values as values.
     */
    public function getObject( string $table, int $id ): array
    {
@@ -81,25 +81,26 @@ class XMLInterface
       {
          $tableObj = $this->getTable( $tableId );
 
-         // monta o filtro com a chave primária
+         // finds the primary key column name
          $primaryKey = $this->getPrimaryKey( $tableObj );
 
          if ( $primaryKey[ 0 ] == "" )
          {
-            throw new XMLParserException( "Tabela não possui chave primária." );
+            throw new XMLParserException( "Table doesn't have a primary key." );
          }
 
          $filters = array ( "$primaryKey[0]" => $id );
 
-         // busca o registro
+         // searches for the registry
          $rows = $this->getRows( $tableObj, $filters );
 
-         // se encontrou alguma linha, a(s) relaciona com as colunas da tabela.
+         // if any line was found, create the array
          if ( !empty( $rows ) )
          {
             $result = $this->xmlToArray( $tableId, $rows );
          }
       }
+      // if table wasn't found on the archive, generates an error
       else
       {
          throw new XMLParserException( ERR );
@@ -109,11 +110,11 @@ class XMLInterface
    }
 
    /**
-    * Busca todos os objetos de uma tabela no XML.
+    * Retrieves all objects of an XML table.
     *
     * @param string $table
-    *           Tabela de objeto no XML.
-    * @return array Array de arrays associativos com as propriedades do objeto como chaves e os seus respectivos valores.
+    *           XML table name.
+    * @return array Associate array with the object's properties as keys and its values as values.
     */
    public function getAllObjects( string $table ): array
    {
@@ -141,13 +142,13 @@ class XMLInterface
    }
 
    /**
-    * Busca uma lista de objetos no XML de dada tabela e uma lista de propriedades para filtrar.
+    * Retrieves a filtered list of objects from a XML table.
     *
     * @param string $table
-    *           O nome da tabela.
+    *           XML table name.
     * @param array $filters
-    *           Array relacional de colunas => valores a serem buscados.
-    * @return array Array de arrays associativos com as propriedades do objeto como chaves e os seus respectivos valores.
+    *           Associative array with the keys being the column names with its value to be filtered.
+    * @return array Associate array with the object's properties as keys and its values as values.
     *
     */
    public function getFilteredObjects( string $table, array $filters ): array
@@ -160,7 +161,7 @@ class XMLInterface
          $tableObj = $this->getTable( $tableId );
          $rows = $this->getRows( $tableObj, $filters );
 
-         // se obteve alguma linha, a(s) relaciona com as colunas.
+         // if any record was found, creates the result
          if ( !empty( $rows ) )
          {
             $result = $this->xmltoArray( $tableId, $rows );
@@ -175,16 +176,16 @@ class XMLInterface
    }
 
    /**
-    * Insere um item na tabela desde que o mesmo não gere conflitos com chaves primárias e tenha
-    * a mesma quantidade de colunas que a tabela.
-    *
-    * É obrigatório que as chaves primárias sejam settadas, do contrário não será inserido.
-    * Se for settada como nulo, será o último identificador + 1.
-    *
+    * Inserts an item on the table as long as it doesn't have problems with primary keys AND
+    * have the same amount of columns as the table.
+    * 
+    * It's obligatory that primary keys are set, otherwise it won't be inserted.
+    * If it's setted as null, the identifier of the last record + 1 will be used.
+    * 
     * @param array $insert
-    *           O item a ser inserido, array associativo de propriedade => valor.
-    * @return int Se houver chave primária, retorna o valor da chave do item incluso, se não houver chave primária retorna 0.
-    *         Em caso de não inserção, retorna -1.
+    *           The item to be inserted, containing its columns as keys. 
+    * @return int If there's a primary key, the key used will be returned otherwise returns 0.
+    *             If it couldn't be inserted, returns -1.
     */
    public function insertItem( array $insert ): int
    {
@@ -196,7 +197,7 @@ class XMLInterface
 
       if ( !empty( $primary[ 0 ] ) )
       {
-         // Se a tabela conter chave primária e a entrada for válida.
+         // verifies if the table has primary key and the row's value is valid
          $valid = ( bool ) $this->validatePrimary( $primary, $insert );
 
          foreach ( $primary as &$key )
@@ -204,7 +205,7 @@ class XMLInterface
             $colId[ $key ] = $this->getColumnIndex( $this->file_->table, $key );
          }
 
-         // caso não seja válida ou for nula, gera o próximo ID da chave primária baseado na última linha da tabela.
+         // if it ain't valid, find the last record's id and increment it once. 
          if ( !( $valid ) )
          {
             foreach ( $colId as $key => $id )
@@ -215,7 +216,7 @@ class XMLInterface
          }
       }
 
-      // se a entrada estiver com todos as colunas "preenchidas"
+      // if the item has every columns set
       if ( $colCount == count( $insert ) )
       {
          $insert = $this->sortColumns( $insert );
@@ -240,21 +241,22 @@ class XMLInterface
    }
 
    /**
-    * Atualiza os valores especificados nas linhas que atendem aos filtros.
+    * Updates the specified columns for items that match the filters.
     *
     * @param array $filters
-    *           Os filtros que as linhas devem atender.
+    *           The filters to update items.
     * @param array $changes
-    *           As mudanças a serem feitas, array formatado com nome_da_coluna => valor.
+    *           The changes to be made, array with column names' as keys.
     * @param bool $all
-    *           [optional] Define se realiza a operação em TODOS os itens da tabela.
-    * @return int Retorna 1 se houve alguma atualização, 0 se não.
+    *           [optional] Defines if must update ALL records on the table. 
+    * @return int Returns 1 if anything was updated, else returns 0.
     */
    public function updateFile( array $filters, array $changes, bool $all = false ): int
    {
       $err = 0;
       $i = 0;
 
+      // gets the table's primary key
       $primary = $this->getPrimaryKey( $this->file_->table );
 
       foreach ( $this->file_->table->row as $row )
@@ -265,7 +267,7 @@ class XMLInterface
             {
                $colId = $this->getColumnIndex( $this->file_->table, $col );
 
-               // se a coluna não for primária e existir
+               // if the column isn't primary and exists
                if ( !( $this->isPrimary( $primary, $col ) ) && ( $colId >= 0 ) )
                {
                   $this->file_->table->row[ $i ]->value[ $colId ] = $val;
@@ -284,13 +286,13 @@ class XMLInterface
    }
 
    /**
-    * Remove as linhas que atendem aos filtros.
+    * Deletes the rows that match the filters.
     *
     * @param array $filters
-    *           Os filtros aos quais as linhas devem atender, array formatado com nome_da_coluna => valor.
+    *           Filters to which the rows must match, array with column names' as keys.
     * @param bool $all
-    *           [optional] Define se realiza a operação em TODOS os itens da tabela.
-    * @return int Retorna 1 se houve alguma remoção, 0 se não.
+    *           [optional] Defines if must remove ALL records on the table.
+    * @return int Returns 1 if anything was removed, else returns 0.
     */
    public function removeItems( array $filters, bool $all = false ): int
    {
@@ -299,7 +301,7 @@ class XMLInterface
       $err = 0;
       $i = 0;
 
-      // verifica se alguma das chaves é primária, para só percorrer uma vez a tabela se for
+      // checks if any of the keys are primary to avoid searching multiple times
       foreach ( array_keys( $filters ) as &$col )
       {
          if ( $this->isPrimary( $this->getPrimaryKey( $this->file_->table ), $col ) )
@@ -312,7 +314,7 @@ class XMLInterface
       {
          if ( $all || $this->isContained( $this->file_->table, $row, $filters ) )
          {
-            // identifica as linhas e remove depois pra não quebrar o foreach
+            // identifies the rows to remove as to not break the foreach 
             $removeRows[] = $i;
             $err = 1;
 
@@ -325,7 +327,7 @@ class XMLInterface
          $i++;
       }
 
-      // remove as linhas que deram match
+      // removes the rows that matched the filters
       $removeRows = array_reverse( $removeRows );
       foreach ( $removeRows as $key )
       {
@@ -338,11 +340,11 @@ class XMLInterface
    }
 
    /**
-    * Busca o ID da tabela no arquivo XML.
+    * Finds a table's ID on the XML file.
     *
     * @param string $tablename
-    *           O nome da tabela a ser procurado.
-    * @return int Retorna o índice da tabela ou -1 se não encontrá-la.
+    *           The table name to be searched.
+    * @return int Returns the table index or -1 if wasn't found.
     */
    private function getTableId( string $tablename ): int
    {
@@ -366,11 +368,11 @@ class XMLInterface
    }
 
    /**
-    * Busca uma tabela no arquivo XML através do seu ID.
+    * Gets an table on the file through its ID.
     *
     * @param int $tableId
-    *           ID da tabela a ser encontrada
-    * @return \SimpleXMLElement|NULL Se encontrar a tabela pelo seu ID, a retorna como elemento SimpleXMLElement.
+    *           Table's ID.
+    * @return \SimpleXMLElement|NULL If the table was found, returns it as a SimpleXMLElement. 
     */
    private function getTable( int $tableId ): ?\SimpleXMLElement
    {
@@ -378,11 +380,11 @@ class XMLInterface
    }
 
    /**
-    * Retorna a chave primária da tabela definida nos seus atributos.
+    * Gets the table's primary key.
     *
     * @param \SimpleXMLElement $tableObj
-    *           Objeto SimpleXMLElement que contém, inclusive, os atributos da tabela.
-    * @return array Array de strings com o nome das colunas primárias da tabela.
+    *           The table's SimpleXMLEelement object.
+    * @return array Array containing the table's primary keys. 
     */
    private function getPrimaryKey( \SimpleXMLElement $tableObj ): array
    {
@@ -390,13 +392,13 @@ class XMLInterface
    }
 
    /**
-    * Retorna o indíce de uma coluna de uma tabela específica no arquivo XML.
+    * Gets the index of a table's column.
     *
     * @param \SimpleXMLElement $tableObj
-    *           A tabela em formato de objeto XML.
+    *           Table's SimpleXMLElement object.
     * @param string $columnName
-    *           O nome da coluna a ser procurada.
-    * @return int O valor do índice da tabela se encontrada, se não a encontrar retorna -1.
+    *           Column name.
+    * @return int The column's index if it was found, else -1. 
     */
    private function getColumnIndex( \SimpleXMLElement $tableObj, string $columnName ): int
    {
@@ -414,34 +416,34 @@ class XMLInterface
    }
 
    /**
-    * Retorna um array de linhas que atendem aos critérios de determinados filtros.
+    * Gets an array of rows that match the filters.
     *
     * @param \SimpleXMLElement $tableObj
-    *           A tabela em formato de objeto XML.
+    *           Table's SimpleXMLElement object.
     * @param array $filters
-    *           Os filtros, coluna e valor, tomados como critério.
-    * @throws XMLParserException Exceção gerada caso alguma das colunas não exista na tabela.
-    * @return array Retorna o array das linhas que atenderam aos critérios exigidos.
+    *           The filters that rows must match. Columns' names as keys. 
+    * @throws XMLParserException Exception case one of the columns is not part of the table. 
+    * @return array Returns the array of rows that match the filters. 
     */
    private function getRows( \SimpleXMLElement $tableObj, array $filters ): array
    {
       $indexFilters = array ();
       $rows = array ();
 
-      // acha o index de cada coluna informada.
+      // find the index of each column
       foreach ( $filters as $column => $value )
       {
          $index = $this->getColumnIndex( $tableObj, $column );
 
          if ( $index < 0 )
          {
-            throw new XMLParserException( "Tabela não possui a coluna '$column' para filtrar." );
+            throw new XMLParserException( "Table doesn't contain the '$column' column." );
          }
 
          $indexFilters[ $index ] = $value;
       }
 
-      // verifica quais linhas atendem aos filtros
+      // checks which rows match the filters
       foreach ( $tableObj->row as $row )
       {
          $match = true;
@@ -462,13 +464,13 @@ class XMLInterface
    }
 
    /**
-    * Transforma o resultado das buscas em array formatado.
+    * Puts the items found on formated arrays.
     *
     * @param int $tableId
-    *           O ID da tabela em que está o objeto.
+    *           Table identifier.
     * @param array $rows
-    *           Array com as linhas encontradas na busca.
-    * @return array Array no formato de tabela (nome_da_coluna => valor) com o objeto encontrado.
+    *           Array containing the rows.
+    * @return array Associate array with the object's properties as keys and its values as values.
     */
    private function xmlToArray( int $tableId, array $rows ): array
    {
@@ -512,15 +514,15 @@ class XMLInterface
    }
 
    /**
-    * Indica se uma linha atende aos filtros determinados.
+    * Tells if a row match specific filters.
     *
     * @param \SimpleXMLElement $tableObj
-    *           A tabela de dados.
+    *           Table's SimpleXMLElement object.
     * @param \SimpleXMLElement $row
-    *           A linha a ser verificada.
+    *           Row's SimpleXMLElement object.
     * @param array $filters
-    *           Os critérios a serem aplicados, array formatado com nome_da_coluna => valor.
-    * @return bool Se a linha atende aos critérios.
+    *           The filters to be matched, columns' names as keys.
+    * @return bool Flag saying if the row matches the filters.
     */
    private function isContained( \SimpleXMLElement $tableObj, \SimpleXMLElement $row, array $filters ): bool
    {
@@ -555,13 +557,13 @@ class XMLInterface
    }
 
    /**
-    * Busca conflitos entre as chaves primárias da entrada, ou se alguma chave é nula.
+    * Checks if the entry has conflicting primary keys.
     *
     * @param array $primary
-    *           O array de chaves primárias da tabela.
+    *           Table's primary keys.
     * @param array $entry
-    *           A linha de dados a entrar no banco de dados, somente valores.
-    * @return int Retorna 0 se encontrar algum problema ou 1 se não.
+    *           Entry to be analized.
+    * @return int Returns 1 if entry is valid, else 0.
     */
    private function validatePrimary( array $primary, array $entry ): int
    {
@@ -580,7 +582,7 @@ class XMLInterface
          {
             $value = ( empty( ( ( array ) $row->value )[ $colId ] ) ) ? null : ( ( array ) $row->value )[ $colId ];
 
-            // verifica se a chave primária da entrada gera conflito com alguma linha OU é nula.
+            // checks if the primary key is conflicting OR null
             if ( $entry[ $colName ] == $value )
             {
                $err = 0;
@@ -593,13 +595,13 @@ class XMLInterface
    }
 
    /**
-    * Indica se uma coluna faz parte das chaves primárias de uma tabela.
+    * Tells if a column is a table's primary key.
     *
     * @param array $primaries
-    *           Array das chaves primárias da tabela.
+    *           Table's primary keys.
     * @param string $colName
-    *           O nome da coluna para verificação.
-    * @return bool
+    *           Column name to be checked.
+    * @return bool Flag saying it the column is a primary key.
     */
    private function isPrimary( array $primaries, string $colName ): bool
    {
@@ -618,25 +620,25 @@ class XMLInterface
    }
 
    /**
-    * Ordena as colunas de acordo com o mapa da tabela.
+    * Orders a row's columns, according to the table structure.
     *
     * @param array $row
-    *           Mapa de valores de uma linha, formato coluna => valor.
-    * @return array Array coluna => valor ordenado como o mapa da tabela.
+    *           Associative array with the columns' names as keys.
+    * @return array Ordered associative array with the columns' names as keys.
     */
    private function sortColumns( array $row ): array
    {
       $final = array ();
-      // associa o nome das colunas ao seu index na tabela.
+      // associates the columns' names to their index
       foreach ( $row as $col => $val )
       {
          $indexArray[ $col ] = $this->getColumnIndex( $this->file_->table, $col );
       }
 
-      // ordena o array pelo index das colunas
+      // orders the arrays through their indexes
       asort( $indexArray );
 
-      // e salva de volta no array
+      // and saves it back
       foreach ( $indexArray as $col => $val )
       {
          $final[ $col ] = $row[ $col ];
@@ -647,7 +649,7 @@ class XMLInterface
 }
 
 /**
- * Classe que gera exceção para o XMLInterface.
+ * Class to generate Exceptions for the XMLInterface.
  */
 class XMLParserException extends \Exception
 {}

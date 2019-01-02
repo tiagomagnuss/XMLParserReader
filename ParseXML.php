@@ -3,8 +3,9 @@
  * XMLParserReader
  * 
  * @author Tiago C. Magnus
- * @copyright : Tiago Magnus - 2018
+ * @copyright : Tiago Magnus - 2019
  */
+
 
 /**
  * Generates the XML file that maps the table.
@@ -148,6 +149,8 @@ class ParseXML
 
          foreach ( $rows[ $i ] as $value )
          {
+            // replacing & for something XML can read as &.
+            $value = str_replace( "&", "&amp;", $value );
             $valObj = $this->doc_->createElement( "value", $value );
             $line->appendChild( $valObj );
          }
