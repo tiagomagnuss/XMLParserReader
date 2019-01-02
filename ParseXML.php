@@ -3,10 +3,9 @@
  * XMLParserReader
  * 
  * @author Tiago C. Magnus
- * @copyright : Tiago Magnus - 2018
+ * @copyright : Tiago Magnus - 2019
  */
 
-require_once "Database/Database.php";
 
 /**
  * Generates the XML file that maps the table.
