@@ -48,7 +48,7 @@ class XMLInterface
 
          if ( $error )
          {
-            throw new Exception( $error );
+            throw new XMLParserException( $error );
          }
 
          $this->doc_ = new \DOMDocument( "1.0", "utf-8" );
@@ -59,7 +59,7 @@ class XMLInterface
       }
       else
       {
-         throw new Exception( "Failed attempt to open $filename." );
+         throw new XMLParserException( "Failed attempt to open $filename." );
       }
    }
 
